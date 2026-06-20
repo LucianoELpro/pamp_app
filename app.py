@@ -3,7 +3,14 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import gspread
 from plotly.subplots import make_subplots
+from google.oauth2.service_account import Credentials
+
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
 
 st.set_page_config(
     page_title="PAMP 2026 — Dashboard",
@@ -121,12 +128,22 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ── Datos ──────────────────────────────────────────────────────────────────────
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_data():
-    df = pd.read_excel(
-        r"C:\Users\USUARIO\Desktop\CLAUDE_CODE\PRUEBA_EXCEL_BD\BASE_DATOS_LIMPIA.xlsx",
-        sheet_name="BASE DE DATOS", engine="openpyxl"
+    # Conectar a Google Sheets usando los secrets de Streamlit
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=SCOPES
     )
+    client = gspread.authorize(creds)
+    
+    # Abrir el Sheet y la hoja específica
+    sheet = client.open("BASE_DATOS_LIMPIA").worksheet("BASE DE DATOS")
+    
+    # Convertir a DataFrame
+    df = pd.DataFrame(sheet.get_all_records())
+    
+    # Limpieza de datos (igual que antes)
     for col in ["Programado", "Ejecutado", "Acta", "Informe", "C.O."]:
         if col in df.columns:
             df[col] = df[col].fillna("NO").astype(str).str.upper().str.strip()
